@@ -29,7 +29,7 @@
 | Компонент | Технология |
 |---|---|
 | Backend | Go 1.25, chi, pgx/v5, goose, golang-jwt |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Frontend | React 18, TypeScript, Vite, Ionic React 8 |
 | База данных | PostgreSQL 16 |
 | Деплой | Docker Compose, nginx |
 
