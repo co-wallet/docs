@@ -111,7 +111,7 @@ Handler вызывает один helper `httputil.HandleServiceError(w, err)` �
 - **access** — 15 минут, кладётся в `Authorization: Bearer <token>`
 - **refresh** — 30 дней, обменивается на пару через `POST /api/auth/refresh`
 
-Claims содержат `userId` и `isAdmin`. Middleware `internal/middleware/auth.go` разбирает заголовок, валидирует подпись через `AuthService.ValidateAccessToken` и кладёт значения в контекст:
+Claims содержат `userId`, `isAdmin` и `tokenType` (`access` или `refresh`). Тип проверяется на каждом auth-пути, поэтому refresh-токен нельзя использовать для доступа к API. При обновлении токенов сервис повторно загружает пользователя и отклоняет деактивированные аккаунты. Middleware `internal/middleware/auth.go` разбирает заголовок, валидирует подпись через `AuthService.ValidateAccessToken` и кладёт значения в контекст:
 
 ```go
 const (

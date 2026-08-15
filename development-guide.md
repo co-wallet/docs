@@ -10,7 +10,7 @@ co-wallet — это четыре отдельных git-репозитория,
 |-------------|-------------------------------|
 | `docs/`     | Документация, спецификация    |
 | `backend/`  | Go API (chi, pgx, goose)      |
-| `frontend/` | React + Vite + TypeScript     |
+| `frontend/` | React + Vite + TypeScript + Ionic |
 | `docker/`   | docker-compose, Dockerfile-ы  |
 
 У каждого — свой `.git`. Коммиты и ветки — по-репо, не на уровне workspace.
