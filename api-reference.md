@@ -157,7 +157,7 @@ Rate limit: 5 req/s, burst 10.
     "name": "Семья",
     "type": "shared",
     "currency": "RUB",
-    "icon": "👨‍👩‍👧",
+    "icon": "preset:shared",
     "initialBalance": 0,
     "includeInBalance": true,
     "ownerId": "...",
@@ -177,7 +177,7 @@ Rate limit: 5 req/s, burst 10.
   "name": "Карта Сбер",
   "type": "personal",
   "currency": "RUB",
-  "icon": "💳",
+  "icon": "preset:debit-card",
   "initialBalance": 12500.00,
   "includeInBalance": true
 }
@@ -194,7 +194,7 @@ Rate limit: 5 req/s, burst 10.
 Обновление полей (кроме `currency` и `type`).
 
 ```json
-{ "name": "Новое имя", "icon": "🏦", "includeInBalance": false }
+{ "name": "Новое имя", "icon": "preset:bank", "includeInBalance": false }
 ```
 
 ### `DELETE /api/accounts/{accountID}`
@@ -239,7 +239,7 @@ Soft-delete. Только владелец (`403` иначе).
     "id": "...",
     "name": "Еда",
     "type": "expense",
-    "icon": "🍔",
+    "icon": "preset:fast-food",
     "hidden": false
   }
 ]
@@ -250,7 +250,7 @@ Soft-delete. Только владелец (`403` иначе).
 ### `POST /api/categories`
 
 ```json
-{ "name": "Транспорт", "type": "expense", "icon": "🚗" }
+{ "name": "Транспорт", "type": "expense", "icon": "preset:car" }
 ```
 
 ### `PATCH /api/categories/{categoryID}`
