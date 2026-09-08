@@ -22,6 +22,7 @@
 - [Архитектура бэкенда](backend-architecture.md) — слои, DBTX, ошибки, JWT, тесты
 - [API Reference](api-reference.md) — все эндпоинты с примерами запросов и ответов
 - [Development Guide](development-guide.md) — локальный запуск, добавление нового домена, написание тестов
+- [Гайдлайн интерфейса](ui-guidelines.md) — единый layout, компоненты, формы и темы
 - [Спецификация](specification.md) — исходное техническое задание
 
 ## Стек
