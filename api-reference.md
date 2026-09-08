@@ -231,7 +231,7 @@ Soft-delete. Только владелец (`403` иначе).
 
 ### `GET /api/categories`
 
-Иерархический список категорий пользователя.
+Плоский список категорий пользователя, отсортированный по названию.
 
 ```json
 [
@@ -239,30 +239,26 @@ Soft-delete. Только владелец (`403` иначе).
     "id": "...",
     "name": "Еда",
     "type": "expense",
-    "icon": "🍔",
-    "parentId": null,
-    "children": [
-      { "id": "...", "name": "Рестораны", "type": "expense", "icon": "🍽", "parentId": "..." }
-    ]
+    "icon": "🍔"
   }
 ]
 ```
 
-`type`: `"expense"` | `"income"`.
+`type`: `"expense"` | `"income"`. Названия активных категорий уникальны в пределах пользователя и типа без учёта регистра.
 
 ### `POST /api/categories`
 
 ```json
-{ "name": "Транспорт", "type": "expense", "icon": "🚗", "parentId": null }
+{ "name": "Транспорт", "type": "expense", "icon": "🚗" }
 ```
 
 ### `PATCH /api/categories/{categoryID}`
 
-Любые поля опционально (`name`, `icon`, `parentId`).
+Любые поля опционально (`name`, `icon`).
 
 ### `DELETE /api/categories/{categoryID}`
 
-Soft-delete. `409` если есть связанные транзакции.
+При наличии транзакций категория удаляется мягко и сохраняется в истории. Без транзакций удаляется полностью.
 
 ---
 
