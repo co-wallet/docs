@@ -561,13 +561,15 @@ Soft-delete. Только владелец (`403` иначе).
 ```json
 {
   "account_kinds": {"source-account-id": "spending"},
-  "category_icons": {"source-category-id": "preset:groceries|green|none"}
+  "category_icons": {"source-category-id": "preset:groceries|green|none"},
+  "account_icons": {"source-account-id": "preset:cash|purple|purple"}
 }
 ```
 
 В `account_kinds` обязательны все ID исходных счетов; значения: `spending`,
 `deposit`, `investment`. `category_icons` необязателен и разрешён только для новых
-категорий; пропущенные настройки иконок сохраняются. Форматы: `preset:<id>` или
+категорий. `account_icons` необязателен и задаёт оформление счетов по source ID.
+Пропущенные настройки иконок сохраняются; допускаются только ID штатных preset-иконок. Форматы: `preset:<id>` или
 `preset:<id>|<цвет>|<цвет рамки либо none>`. Цвета: blue, purple, pink, red,
 orange, green, yellow, graphite.
 
@@ -598,7 +600,11 @@ orange, green, yellow, graphite.
 и доля на полную сумму. Для перевода сохраняются обе суммы; начальные остатки
 не становятся доходами. Disabled-история сохраняется, удалённые сущности не
 восстанавливаются. Исходный флаг общего баланса не заменяет выбор типа счёта.
-Иконки счетов по умолчанию `preset:debit-card`, новых категорий — `preset:other`.
+Иконки новых счетов и категорий подбираются по названию и контексту типа локально на сервере.
+При неизвестном названии используются `preset:wallet` для счетов и `preset:other`
+для категорий. Случайные цвета выбираются из палитры и сохраняются в предпросмотре;
+смена параметров и подтверждение не меняют их. Названия и финансовые данные
+не отправляются во внешние сервисы для подбора.
 
 Даты становятся календарными DATE без сдвига часового пояса. Блокируются
 нулевые обычные операции, имена длиннее 100 символов, суммы свыше
@@ -613,7 +619,7 @@ orange, green, yellow, graphite.
 
 | HTTP | Коды |
 | --- | --- |
-| 400 | `invalid_request`, `invalid_account_kinds`, `invalid_category_icons`, `preview_blocked`, `exclusions_not_confirmed`, `source_*` — ошибка формата, версии, схемы или лимита парсера |
+| 400 | `invalid_request`, `invalid_account_kinds`, `invalid_category_icons`, `invalid_account_icons`, `preview_blocked`, `exclusions_not_confirmed`, `source_*` — ошибка формата, версии, схемы или лимита парсера |
 | 401 | Отсутствующий или неверный access token |
 | 404 | `preview_not_found`: отсутствующий, чужой, истёкший или вытесненный снимок |
 | 408 | `request_timeout` |
