@@ -533,16 +533,21 @@ Soft-delete. Только владелец (`403` иначе).
 Возвращает `200`: `{"available":true,"reasons":[]}`. Возможные причины отказа:
 `owned_accounts` (включая soft-deleted), `created_categories` (в том числе скрытые
 категории), `account_membership`, `transactions` (включая связанные доли).
-Наличие общего каталога других пользователей не блокирует импорт.
+Проверяется режим `empty`. Для `replace` непустота допустима; внешние связи
+проверяются в предпросмотре. Наличие общего каталога других пользователей не блокирует импорт.
 
 ### `POST /api/imports/monefy/preview`
 
-Тело — байты `.db`, `Content-Type: application/octet-stream`. Ответ `201`:
+Тело — байты `.db`, `Content-Type: application/octet-stream`. Query-параметр
+`mode=empty` (по умолчанию) или `mode=replace`; неизвестное значение — 400.
+Режим сохраняется в неизменяемом снимке. Для смены режима загрузите файл заново.
+Ответ `201`:
 
 | Поле | Содержание |
 | --- | --- |
 | `preview_id`, `sha256`, `expires_at` | ID неизменяемого снимка, SHA-256 файла, срок в RFC3339 |
 | `can_confirm`, `requires_exclusion_confirmation` | Нет блокировок; нужно согласие с исключениями |
+| `mode`, `replacement` | Режим; для replace — состав старой истории: `accounts` с `id`, `name`, `currency`, `deleted_at`, `counts`, `blockers` |
 | `counts` | `accounts`, `categories`, `transactions` (обычные), `transfers` |
 | `period_from`, `period_to`, `currencies` | Границы истории (или null), коды валют счетов |
 | `accounts` | `source_id`, `name`, `currency`, `kind`, `icon`, `source_icon`, `initial_balance`, `initial_balance_date`, `final_balance`, `source_included_in_total`, `source_disabled_at` |
@@ -553,7 +558,7 @@ Soft-delete. Только владелец (`403` иначе).
 
 Денежные значения предпросмотра — точные десятичные **строки**, например
 `"-1234.567"`. Итог включает начальный остаток и обе стороны переводов.
-В первоначальном ответе `kind` пустой, `can_confirm=false`: нужно выбрать типы.
+В первоначальном ответе у всех счетов `kind=spending`; типы можно изменить.
 При блокирующих диагностических сообщениях (`severity=blocking`) итоги предварительные.
 
 ### `POST /api/imports/monefy/{previewID}/options`
@@ -573,7 +578,8 @@ Soft-delete. Только владелец (`403` иначе).
 `preset:<id>|<цвет>|<цвет рамки либо none>`. Цвета: blue, purple, pink, red,
 orange, green, yellow, graphite.
 
-Ответ `201` содержит новый предпросмотр с новым ID и повторной проверкой каталога.
+Ответ `201` содержит новый предпросмотр с новым ID, повторной проверкой каталога
+и состава старой истории для replace. Все подтверждения в интерфейсе сбрасываются.
 Подтверждать нужно именно этот ответ. Срок действия исходного снимка не продлевается.
 
 Категории сопоставляются по типу и имени после trim и приведения к нижнему регистру.
@@ -584,10 +590,11 @@ orange, green, yellow, graphite.
 ### `POST /api/imports/monefy/{previewID}/confirm`
 
 ```json
-{"acknowledge_exclusions":true}
+{"acknowledge_exclusions":true,"acknowledge_deletion":true}
 ```
 
-При отсутствии исключений допустимо `{}`. Флаг подтверждает все исключения
+Для `replace` обязателен отдельный `acknowledge_deletion=true`, независимо от
+исключений. Для `empty` без исключений допустимо `{}`. Флаг подтверждает все исключения
 этого снимка; блокировки им обойти нельзя. Неизвестные поля отклоняются.
 Успех `200` содержит `preview_id`, `completed_at` и счётчики `accounts`,
 `categories` (созданные), `reused_categories`, `transactions`, `transfers`.
@@ -610,7 +617,32 @@ orange, green, yellow, graphite.
 нулевые обычные операции, имена длиннее 100 символов, суммы свыше
 99999999999.999 по модулю и операции до даты начального остатка.
 Все изменения и квитанция фиксируются одной транзакцией. Перед записью повторно
-проверяются пустота пользователя, валюты и каталог; ошибка откатывает весь импорт.
+проверяются пустота пользователя (empty) или неизменность старой истории (replace),
+валюты и каталог; ошибка откатывает весь импорт.
+
+В `replacement.counts`: `accounts`, `deleted_accounts` (подмножество accounts),
+`transactions` (обычные), `transfers`, `members`, `shares`, `tag_links`.
+`replacement.blockers` содержит количества по причинам `shared_accounts`,
+`foreign_membership`, `foreign_members`, `external_transactions`, `foreign_authors`,
+`foreign_shares`. Ненулевые значения создают блокирующие диагностики
+`target_replace_<причина>`. Счётчики описывают проверяемый состав; при блокировке
+удаление целиком запрещено. Чужие имена/суммы операций в ответ не включаются.
+
+При replace физически удаляются все собственные личные счета, включая мягко
+удалённые, их операции и переводы, доли, членства и связи тегов. Пользователь,
+профиль, вход, настройки видимости и весь общий справочник категорий/тегов сохраняются.
+Общие счета, членство в чужом счёте, другие участники, чужие авторы/доли и внешние
+переводы блокируют замену. Удаление безвозвратно, резервные копии и архивы не
+создаются. Rollback при ошибке не является пользовательской резервной копией.
+
+Для replace после блокировки пользователя захватываются `SHARE ROW EXCLUSIVE NOWAIT`
+на accounts, account_members, transactions, transaction_shares, transaction_tags.
+На время замены это приостанавливает финансовые записи всей инсталляции; чтения
+доступны. При уже выполняющейся записи возвращается конфликт без удаления.
+Отпечаток полного содержимого связанных строк сверяется с preview. При изменении
+нужен новый preview; старые суммы и описания не сохраняются в файле снимка.
+Успешная квитанция проверяется до доступа к preview и до удаления: повтор старого
+confirm безопасен даже после последующих замен.
 
 ### Ошибки и срок хранения
 
@@ -619,11 +651,11 @@ orange, green, yellow, graphite.
 
 | HTTP | Коды |
 | --- | --- |
-| 400 | `invalid_request`, `invalid_account_kinds`, `invalid_category_icons`, `invalid_account_icons`, `preview_blocked`, `exclusions_not_confirmed`, `source_*` — ошибка формата, версии, схемы или лимита парсера |
+| 400 | `invalid_request`, `invalid_import_mode`, `deletion_not_confirmed`, `invalid_account_kinds`, `invalid_category_icons`, `invalid_account_icons`, `preview_blocked`, `exclusions_not_confirmed`, `source_*` — ошибка формата, версии, схемы или лимита парсера |
 | 401 | Отсутствующий или неверный access token |
 | 404 | `preview_not_found`: отсутствующий, чужой, истёкший или вытесненный снимок |
 | 408 | `request_timeout` |
-| 409 | `account_not_empty`, `catalog_changed`, `preview_stale`, `import_busy`, `preview_storage_full`, `import_conflict` |
+| 409 | `account_not_empty`, `replacement_changed`, `replacement_blocked`, `catalog_changed`, `preview_stale`, `import_busy`, `preview_storage_full`, `import_conflict` |
 | 413 | `upload_too_large` |
 | 415 | `expected_sqlite_binary` |
 | 500 | `internal_error`; результат уточняется повтором того же confirm |
