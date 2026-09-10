@@ -560,7 +560,7 @@ Soft-delete. Только владелец (`403` иначе).
 | `mode`, `replacement` | Режим; для replace — состав старой истории: `accounts` с `id`, `name`, `currency`, `deleted_at`, `counts`, `blockers` |
 | `counts` | `accounts`, `categories`, `transactions` (обычные), `transfers` |
 | `period_from`, `period_to`, `currencies` | Границы истории (или null), коды валют счетов |
-| `accounts` | `source_id`, `name`, `currency`, `kind`, `icon`, `source_icon`, `initial_balance`, `initial_balance_date`, `final_balance`, `source_included_in_total`, `source_disabled_at` |
+| `accounts` | `source_id`, `name`, `currency`, `kind`, `access_mode`, `members`, `icon`, `source_icon`, `initial_balance`, `initial_balance_date`, `final_balance`, `source_included_in_total`, `source_disabled_at` |
 | `categories` | `source_id`, `name`, `type`, `icon`, `source_icon`, `source_disabled_at`, необязательный `existing_id` |
 | `diagnostics` | Массив `severity`, `code`, `entity`, `source_id`, `message` |
 | `exclusions` | Исключённые живые записи: `entity`, `source_id`, `reason` |
@@ -568,7 +568,11 @@ Soft-delete. Только владелец (`403` иначе).
 
 Денежные значения предпросмотра — точные десятичные **строки**, например
 `"-1234.567"`. Итог включает начальный остаток и обе стороны переводов.
-В первоначальном ответе у всех счетов `kind=spending`; типы можно изменить.
+В первоначальном ответе у всех счетов `kind=spending`, `access_mode=personal`.
+`members` содержит `user_id`, `username`, `default_share`, `initial_balance`,
+`final_balance`; суммы участника — строки с восемью знаками, учитывающие
+начальный остаток, доли операций и входящие переводы. Для личного счёта
+`username` может быть пустым: единственный участник — текущий пользователь.
 При блокирующих диагностических сообщениях (`severity=blocking`) итоги предварительные.
 
 ### `POST /api/imports/monefy/{previewID}/options`
@@ -577,7 +581,16 @@ Soft-delete. Только владелец (`403` иначе).
 {
   "account_kinds": {"source-account-id": "spending"},
   "category_icons": {"source-category-id": "preset:groceries|green|none"},
-  "account_icons": {"source-account-id": "preset:cash|purple|purple"}
+  "account_icons": {"source-account-id": "preset:cash|purple|purple"},
+  "account_access": {
+    "source-account-id": {
+      "access_mode": "shared",
+      "members": [
+        {"username": "anna", "default_share": 0.6},
+        {"username": "boris", "default_share": 0.4}
+      ]
+    }
+  }
 }
 ```
 
@@ -587,6 +600,13 @@ Soft-delete. Только владелец (`403` иначе).
 Пропущенные настройки иконок сохраняются; допускаются только ID штатных preset-иконок. Форматы: `preset:<id>` или
 `preset:<id>|<цвет>|<цвет рамки либо none>`. Цвета: blue, purple, pink, red,
 orange, green, yellow, graphite.
+
+`account_access` необязателен: пропущенные счета сохраняют настройки.
+Режим — `personal` или `shared`; для возврата к личному передайте `members: []`.
+Участники должны быть активными, уникальными и включать владельца; доли
+от 0 до 1, максимум четыре десятичных знака, сумма ровно 1. Ошибочная
+конфигурация даёт блокирующую диагностику `target_account_members` с ID счёта;
+неизвестный ID — `400 invalid_account_access`.
 
 Ответ `201` содержит новый предпросмотр с новым ID, повторной проверкой каталога
 и состава старой истории для replace. Все подтверждения в интерфейсе сбрасываются.
@@ -612,9 +632,12 @@ orange, green, yellow, graphite.
 после перезапуска backend. При неопределённом сетевом результате повторяют
 **тот же confirm**, а не загрузку нового файла.
 
-Счета создаются личными и активными, доля владельца 100%. Остатки записываются
-только на счетах; каждому расходу, доходу и переводу соответствует одна запись
-и доля на полную сумму. Для перевода сохраняются обе суммы; начальные остатки
+Счета создаются активными с выбранными режимом, участниками и долями.
+Эта конфигурация после импорта неизменяема. Остатки записываются только на счетах;
+каждому расходу, доходу и исходящему переводу соответствуют доли участников
+с точностью 0,0001. Распределение использует наибольшие остатки, при равенстве —
+порядок UUID участников; сумма долей точно равна сумме операции. Входящие
+переводы учитываются по фиксированным долям назначения в валюте назначения. Для перевода сохраняются обе суммы; начальные остатки
 не становятся доходами. Disabled-история сохраняется, удалённые сущности не
 восстанавливаются. Исходный флаг общего баланса не заменяет выбор типа счёта.
 Иконки новых счетов и категорий подбираются по названию и контексту типа локально на сервере.
@@ -628,7 +651,9 @@ orange, green, yellow, graphite.
 99999999999.999 по модулю и операции до даты начального остатка.
 Все изменения и квитанция фиксируются одной транзакцией. Перед записью повторно
 проверяются пустота пользователя (empty) или неизменность старой истории (replace),
-валюты и каталог; ошибка откатывает весь импорт.
+валюты, каталог и активность участников; ошибка откатывает весь импорт.
+Недоступный или заменённый участник — `409 members_changed`, нужен новый
+предпросмотр. Старые снимки без конфигурации доступа — `409 preview_stale`.
 
 В `replacement.counts`: `accounts`, `deleted_accounts` (подмножество accounts),
 `transactions` (обычные), `transfers`, `members`, `shares`, `tag_links`.
