@@ -307,7 +307,7 @@ Soft-delete. Только владелец (`403` иначе).
 | `tag_mode`     | `or` \| `and`                 | По умолчанию `or`               |
 | `date_from`    | `YYYY-MM-DD`                  |                                 |
 | `date_to`      | `YYYY-MM-DD`                  |                                 |
-| `type`         | `expense` \| `income` \| `transfer` |                           |
+| `types`        | `expense,income,transfer`     | Один или несколько типов         |
 | `page`         | int, default 1                |                                 |
 | `limit`        | int, default 50, max 200      |                                 |
 
